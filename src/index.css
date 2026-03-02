@@ -1,0 +1,22 @@
+body {
+  background-color: #1a1a1a !important; /* Gris oscuro para toda la app */
+  color: #ff69b4; /* Rosa para los textos */
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.btn-primary {
+  background-color: #ff69b4 !important;
+  border-color: #ff69b4 !important;
+  color: white !important;
+}
+
+.btn-outline-danger {
+  color: #ff69b4 !important;
+  border-color: #ff69b4 !important;
+}
+
+.btn-outline-danger:hover {
+  background-color: #ff69b4 !important;
+  color: white !important;
+}
