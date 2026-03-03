@@ -64,7 +64,7 @@ const Camara = () => {
                 try {
                     await videoRef.current.play();
                 } catch (err) {
-                    console.log("Esperando interacción...");
+                    console.log("Esperando interacción del usuario...");
                 }
             }
         };
@@ -102,9 +102,7 @@ const Camara = () => {
         let timer;
         const enviarFrame = async () => {
             if (filtroActivo && videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada) {
-                try {
-                    await faceMeshRef.current.send({ image: videoRef.current });
-                } catch (e) { console.error(e); }
+                await faceMeshRef.current.send({ image: videoRef.current });
             } else if (!filtroActivo && canvasOverlayRef.current) {
                 const ctx = canvasOverlayRef.current.getContext('2d');
                 ctx.clearRect(0, 0, canvasOverlayRef.current.width, canvasOverlayRef.current.height);
@@ -115,7 +113,6 @@ const Camara = () => {
         return () => cancelAnimationFrame(timer);
     }, [filtroActivo, fotoCapturada]);
 
-    // 4. LÓGICA DE DIBUJO (Corregida para Estabilidad Horizontal)
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
 
@@ -131,8 +128,7 @@ const Camara = () => {
         const distOjosPX = Math.sqrt(Math.pow(xDer - xIzq, 2) + Math.pow(yDer - yIzq, 2));
         const angulo = Math.atan2(yDer - yIzq, xDer - xIzq);
 
-        // --- LENTES ---
-        const anchoLentes = distOjosPX * 2.8; 
+        const anchoLentes = distOjosPX * 2.4; 
         const lentesRatio = assets.lentes.naturalHeight / assets.lentes.naturalWidth;
         const altoLentes = anchoLentes * lentesRatio;
 
@@ -142,42 +138,52 @@ const Camara = () => {
         ctx.drawImage(assets.lentes, -anchoLentes / 2, -altoLentes / 2, anchoLentes, altoLentes);
         ctx.restore();
 
-        // --- GORRO: AJUSTE PARA MODO HORIZONTAL ---
-        const anchoGorro = anchoLentes * 1.2;
+        const anchoGorro = anchoLentes * 1.0;
         const gorroRatio = assets.gorro.naturalHeight / assets.gorro.naturalWidth;
         const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        // Usamos una lógica de posición vertical más estricta para evitar que flote al girar
-        const esHorizontal = w > h;
-        const offsetY = esHorizontal ? (altoGorro * 0.1) : (altoGorro * 0.3);
-
-        ctx.translate(pFrente.x * w, pFrente.y * h + offsetY); 
+        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.1)); 
         ctx.rotate(angulo);
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
     };
 
-    const capturarFoto = () => {
+  const capturarFoto = () => {
         const video = videoRef.current;
         const canvas = canvasProcesadoRef.current;
         const ctx = canvas.getContext('2d');
         
-        const esHorizontal = video.videoWidth > video.videoHeight;
-        canvas.width = esHorizontal ? 1920 : 1080;
-        canvas.height = esHorizontal ? 1080 : 1920;
+        // Resolución de captura full (Story size)
+        canvas.width = 1080;
+        canvas.height = 1920;
 
+        // --- ESTA ES LA PARTE QUE CORREGIMOS ---
+        
+        // Antes: Espejábamos solo el video y dibujábamos el filtro "normal".
+        // Ahora: Si es selfie, espejamos TODO el canvas antes de dibujar nada.
         if (modoCamara === "user") {
-            ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+            // Movemos el origen al borde derecho y escalamos -1 en X (espejo total)
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
         }
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+        // 1. Dibujar Video (Ya sale espejado si corresponde por el translate anterior)
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // 2. Dibujar Filtros Inteligentes (Al estar el canvas espejado, 
+        //    se dibujan tal cual los ves en vivo)
         if (filtroActivo && predicciones) {
             renderAssets(ctx, predicciones, canvas.width, canvas.height);
         }
 
+        // Importante: Volvemos el canvas a la normalidad para el marco estático
+        ctx.setTransform(1, 0, 0, 1, 0, 0); 
+
+        // 3. Dibujar Marco Estático (Este no se espeja nunca)
         ctx.drawImage(assets.marco, 0, 0, canvas.width, canvas.height);
+        
+        // Convertir a imagen final
         setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
     };
 
@@ -225,7 +231,7 @@ const Camara = () => {
                                 <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
                                     <Camera size={45} />
                                 </button>
-                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO10</small>
+                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO3</small>
                             </div>
 
                             <div className="d-flex flex-column align-items-center">
@@ -256,3 +262,4 @@ const Camara = () => {
 };
 
 export default Camara;
+ //funcionando 
