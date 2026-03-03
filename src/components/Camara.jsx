@@ -18,7 +18,6 @@ const Camara = () => {
     const [filtroActivo, setFiltroActivo] = useState(false);
     const [predicciones, setPredicciones] = useState(null);
 
-    // 1. CARGA DE IMÁGENES SEGURA Y PRE-CARGADA
     const assets = useMemo(() => {
         const imgL = new Image(); imgL.src = lentesImg;
         const imgG = new Image(); imgG.src = gorroImg;
@@ -26,7 +25,6 @@ const Camara = () => {
         return { lentes: imgL, gorro: imgG, marco: imgM };
     }, []);
 
-    // 2. INICIALIZAR FACEMESH
     useEffect(() => {
         const faceMesh = new FaceMesh({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
@@ -43,7 +41,6 @@ const Camara = () => {
             const landmarks = results.multiFaceLandmarks ? results.multiFaceLandmarks[0] : null;
             setPredicciones(landmarks);
             
-            // DIBUJO EN TIEMPO REAL
             if (filtroActivo && landmarks && canvasOverlayRef.current) {
                 const canvas = canvasOverlayRef.current;
                 const ctx = canvas.getContext('2d');
@@ -58,7 +55,6 @@ const Camara = () => {
         return () => detenerCamara();
     }, [modoCamara, filtroActivo]); 
 
-    // 3. FUNCIÓN PARA GIRAR CAMARA
     const girarCamara = () => {
         setModoCamara(prev => prev === "user" ? "environment" : "user");
     };
@@ -71,7 +67,10 @@ const Camara = () => {
                 audio: false
             });
             streamRef.current = stream;
-            if (videoRef.current) videoRef.current.srcObject = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.onloadedmetadata = () => videoRef.current.play();
+            }
         } catch (err) { console.error(err); }
     };
 
@@ -82,7 +81,6 @@ const Camara = () => {
         }
     };
 
-    // 4. CONTROL DE RE-VINCULACIÓN DEL VIDEO
     useEffect(() => {
         if (!fotoCapturada && streamRef.current && videoRef.current) {
             videoRef.current.srcObject = streamRef.current;
@@ -90,7 +88,6 @@ const Camara = () => {
         }
     }, [fotoCapturada]);
 
-    // 5. LOOP DE PROCESAMIENTO DE FRAMES
     useEffect(() => {
         let timer;
         const enviarFrame = async () => {
@@ -99,7 +96,6 @@ const Camara = () => {
                     await faceMeshRef.current.send({ image: videoRef.current });
                 } catch (e) { console.error(e); }
             } else if (!filtroActivo && canvasOverlayRef.current) {
-                // Limpiar si el filtro se apaga
                 const ctx = canvasOverlayRef.current.getContext('2d');
                 ctx.clearRect(0, 0, canvasOverlayRef.current.width, canvasOverlayRef.current.height);
             }
@@ -109,48 +105,45 @@ const Camara = () => {
         return () => cancelAnimationFrame(timer);
     }, [filtroActivo, fotoCapturada]);
 
-    // 6. LÓGICA DE DIBUJO MATEMÁTICO (Aquí están los cambios)
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
 
-        // Puntos de referencia MediaPipe
-        const pIzq = landmarks[33];  // Esquina ojo izquierdo
-        const pDer = landmarks[263]; // Esquina ojo derecho
-        const pFrente = landmarks[10]; // Centro de la frente (arriba)
+        const pIzq = landmarks[33];
+        const pDer = landmarks[263];
+        const pFrente = landmarks[10];
 
-        // Convertir coordenadas normalizadas (0-1) a pixeles del canvas
-        const xIzq = pIzq.x * w; const yIzq = pIzq.y * h;
-        const xDer = pDer.x * w; const yDer = pDer.y * h;
+        // CORRECCIÓN DE ESPEJO: Si es selfie, invertimos la X de los puntos
+        const getX = (p) => (modoCamara === "user" ? (1 - p.x) * w : p.x * w);
+        const getY = (p) => p.y * h;
+
+        const xIzq = getX(pIzq); const yIzq = getY(pIzq);
+        const xDer = getX(pDer); const yDer = getY(pDer);
         
         const centroX = (xIzq + xDer) / 2;
         const centroY = (yIzq + yDer) / 2;
         
-        // Distancia base entre ojos para calcular escalas
         const distOjosPX = Math.abs(xDer - xIzq);
         const angulo = Math.atan2(yDer - yIzq, xDer - xIzq);
 
-        // --- LENTES: Manteniendo FORMATO ORIGINAL (sin achatarlos) ---
-        const anchoLentes = distOjosPX * 6.5; // Tamaño grande solicitado
-        const lentesAspectRatio = assets.lentes.naturalHeight / assets.lentes.naturalWidth;
-        const altoLentes = anchoLentes * lentesAspectRatio; // Calculamos el alto real basado en la imagen
+        // --- LENTES: Formato original y escala 3.5 (Ajuste equilibrado para móvil) ---
+        const anchoLentes = distOjosPX * 3.5; 
+        const lentesRatio = assets.lentes.naturalHeight / assets.lentes.naturalWidth;
+        const altoLentes = anchoLentes * lentesRatio;
 
         ctx.save();
-        ctx.translate(centroX, centroY); // Centrar en el puente de la nariz
+        ctx.translate(centroX, centroY);
         ctx.rotate(angulo);
-        // Ajuste Y (-altoLentes / 2) para centrar verticalmente la imagen en el ojo
         ctx.drawImage(assets.lentes, -anchoLentes / 2, -altoLentes / 2, anchoLentes, altoLentes);
         ctx.restore();
 
-        // --- GORRO: LEVANTADO UN POQUITO MÁS ---
-        const anchoGorro = anchoLentes * 1.4; // Proporcional a los lentes gigantes
-        const gorroAspectRatio = assets.gorro.naturalHeight / assets.gorro.naturalWidth;
-        const altoGorro = anchoGorro * gorroAspectRatio;
+        // --- GORRO: Bajado para que entre bien en la cabeza (multiplicador 0.25) ---
+        const anchoGorro = anchoLentes * 1.3;
+        const gorroRatio = assets.gorro.naturalHeight / assets.gorro.naturalWidth;
+        const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        // Levantamos el punto de anclaje Y restando un offset proporcional al tamaño
-       ctx.translate(pFrente.x * w, pFrente.y * h + (anchoGorro * 0.07));
+        ctx.translate(getX(pFrente), getY(pFrente) + (altoGorro * 0.25)); 
         ctx.rotate(angulo);
-        // Dibujamos el gorro hacia arriba (-altoGorro) desde el nuevo punto elevado
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
     };
@@ -159,100 +152,90 @@ const Camara = () => {
         const video = videoRef.current;
         const canvas = canvasProcesadoRef.current;
         const ctx = canvas.getContext('2d');
-        
-        // Resolución de captura full (Story size)
         canvas.width = 1080;
         canvas.height = 1920;
 
-        // 1. Dibujar Video (espejado si es user)
         if (modoCamara === "user") {
             ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
         }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-        // 2. Dibujar Filtros Inteligentes si están activos
         if (filtroActivo && predicciones) {
             renderAssets(ctx, predicciones, canvas.width, canvas.height);
         }
 
-        // 3. Dibujar Marco Estático
         ctx.drawImage(assets.marco, 0, 0, canvas.width, canvas.height);
-        
-        // Convertir a imagen
-        setFotoCapturada(canvas.toDataURL('image/jpeg', 0.8));
+        setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
     };
 
     return (
         <div className="container text-center mt-3 mb-5 pb-5">
-            {/* ÁREA DE VISUALIZACIÓN */}
             <div className="position-relative d-inline-block shadow-lg rounded bg-dark" 
-                 style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16' }}>
+                 style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16', overflow: 'hidden' }}>
                 
-                <div className="w-100 h-100 rounded overflow-hidden position-relative">
-                    {!fotoCapturada ? (
-                        <>
-                            {/* 1. VIDEO BASE */}
-                            <video ref={videoRef} autoPlay playsInline muted className="w-100 h-100" 
-                                   style={{ objectFit: 'cover', transform: modoCamara === "user" ? "scaleX(-1)" : "none" }} />
-                            
-                            {/* 2. CANVA TRANSPARENTE PARA FILTROS EN VIVO */}
-                            <canvas ref={canvasOverlayRef} width="380" height="675" 
-                                    className="position-absolute top-0 start-0 w-100 h-100"
-                                    style={{ 
-                                        zIndex: 15, 
-                                        pointerEvents: 'none', 
-                                        transform: modoCamara === "user" ? "scaleX(-1)" : "none",
-                                        display: filtroActivo ? 'block' : 'none' 
-                                    }} />
+                {!fotoCapturada ? (
+                    <>
+                        <video ref={videoRef} autoPlay playsInline muted className="w-100 h-100" 
+                               style={{ objectFit: 'cover', transform: modoCamara === "user" ? "scaleX(-1)" : "none" }} />
+                        
+                        <canvas ref={canvasOverlayRef} width="1080" height="1920" 
+                                className="position-absolute top-0 start-0 w-100 h-100"
+                                style={{ 
+                                    zIndex: 15, 
+                                    pointerEvents: 'none',
+                                    display: filtroActivo ? 'block' : 'none' 
+                                }} />
 
-                            {/* 3. MARCO PNG ESTÁTICO (SIEMPRE ARRIBA) */}
-                            <img src={marcoImg} className="position-absolute top-0 start-0 w-100 h-100" 
-                                 style={{ pointerEvents: 'none', zIndex: 20, objectFit: 'contain' }} alt="Marco" />
-                        </>
-                    ) : (
-                        // VISTA DE FOTO CAPTURADA
-                        <img src={fotoCapturada} className="w-100 h-100" style={{ objectFit: 'cover' }} alt="Captura final" />
-                    )}
-                </div>
+                        <img src={marcoImg} className="position-absolute top-0 start-0 w-100 h-100" 
+                             style={{ pointerEvents: 'none', zIndex: 20, objectFit: 'contain' }} />
+                    </>
+                ) : (
+                    <img src={fotoCapturada} className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                )}
+            </div>
 
-                {/* BOTONES FLOTANTES */}
-                <div className="position-absolute start-50 translate-middle-x w-100" style={{ bottom: '-45px', zIndex: 30 }}>
-                    {!fotoCapturada ? (
-                        <div className="d-flex justify-content-center align-items-center gap-4">
-                            {/* Botón Filtro */}
+            <div className="mt-4 d-flex justify-content-center align-items-center gap-4 pb-5">
+                {!fotoCapturada ? (
+                    <>
+                        <div className="d-flex flex-column align-items-center">
                             <button className={`btn rounded-circle shadow border-dark border-2 ${filtroActivo ? 'btn-warning' : 'btn-dark'}`}
-                                    style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    style={{ width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     onClick={() => setFiltroActivo(!filtroActivo)}>
                                 <Sparkles size={24} color={filtroActivo ? "black" : "#f8bbd0"} />
                             </button>
-                            {/* Botón Captura */}
-                            <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
+                            <small className="text-white mt-1" style={{ fontSize: '10px' }}>FILTRO</small>
+                        </div>
+
+                        <div className="d-flex flex-column align-items-center">
+                            <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" 
+                                    onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
                                 <Camera size={45} />
                             </button>
-                            {/* Botón Girar */}
+                            <small className="text-white mt-1" style={{ fontSize: '10px' }}>FOTO</small>
+                        </div>
+
+                        <div className="d-flex flex-column align-items-center">
                             <button className="btn btn-dark rounded-circle shadow border-dark border-2" 
-                                    style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    style={{ width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     onClick={girarCamara}>
                                 <SwitchCamera size={24} color="#f8bbd0" />
                             </button>
+                            <small className="text-white mt-1" style={{ fontSize: '10px' }}>GIRAR</small>
                         </div>
-                    ) : (
-                        // BOTONES POST-CAPTURA
-                        <div className="d-flex gap-2 px-3">
-                            <button className="btn btn-secondary flex-grow-1 py-3 text-white rounded-pill border-dark border-2" 
-                                    onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c' }}>
-                                <RefreshCw size={20} className="me-2" /> Repetir
-                            </button>
-                            <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" onClick={() => alert("¡Pronto Firebase!")}>
-                                <Check size={24} className="me-2" /> Subir
-                            </button>
-                        </div>
-                    )}
-                </div>
+                    </>
+                ) : (
+                    <div className="d-flex gap-2 px-3">
+                        <button className="btn btn-secondary flex-grow-1 py-3 text-white rounded-pill border-dark border-2" 
+                                onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c' }}>
+                            <RefreshCw size={20} className="me-2" /> REPETIR
+                        </button>
+                        <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" onClick={() => alert("Subiendo...")}>
+                            <Check size={24} className="me-2" /> SUBIR
+                        </button>
+                    </div>
+                )}
             </div>
-            
-            {/* CANVAS OCULTO PARA PROCESAR LA FOTO FINAL A ALTA RES */}
             <canvas ref={canvasProcesadoRef} style={{ display: 'none' }}></canvas>
         </div>
     );
