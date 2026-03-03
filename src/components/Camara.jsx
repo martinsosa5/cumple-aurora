@@ -5,6 +5,7 @@ import { FaceMesh } from '@mediapipe/face_mesh';
 import marcoImg from '../assets/marco.png';
 import lentesImg from '../assets/lentes.png';
 import gorroImg from '../assets/gorro.png';
+import iconoFiltroMenu from '../assets/icono_filtro.png';
 
 const Camara = () => {
     const videoRef = useRef(null);
@@ -215,23 +216,42 @@ const Camara = () => {
                     )}
                 </div>
 
-                <div className="position-absolute start-50 translate-middle-x w-100" style={{ bottom: '-45px', zIndex: 30 }}>
+                <div className="position-absolute start-50 translate-middle-x w-100" style={{ bottom: '-70px', zIndex: 30 }}>
                     {!fotoCapturada ? (
                         <div className="d-flex justify-content-center align-items-center gap-4">
                             <div className="d-flex flex-column align-items-center">
-                                <button className={`btn rounded-circle shadow border-dark border-2 ${filtroActivo ? 'btn-warning' : 'btn-dark'}`}
-                                        style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                        onClick={() => setFiltroActivo(!filtroActivo)}>
-                                    <Sparkles size={24} color={filtroActivo ? "black" : "#f8bbd0"} />
-                                </button>
-                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FILTRO</small>
-                            </div>
+                        <button 
+                            className="btn rounded-circle shadow border-dark border-2"
+                            style={{ 
+                                width: '55px', 
+                                height: '55px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                backgroundColor: filtroActivo ? '#fae5a4' : '#ffffff', // Amarillo si activo, Blanco si no
+                                overflow: 'hidden',
+                                padding: '5px' // Un poquito de margen interno para que la imagen no toque el borde
+                            }}
+                            onClick={() => setFiltroActivo(!filtroActivo)}
+                        >
+                            <img 
+                                src={iconoFiltroMenu} 
+                                alt="Filtro" 
+                                style={{ 
+                                    width: '100%', 
+                                    height: '100%', 
+                                    objectFit: 'contain' 
+                                }} 
+                            />
+                        </button>
+                        <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FILTRO</small>
+                    </div>
 
                             <div className="d-flex flex-column align-items-center">
                                 <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
                                     <Camera size={45} />
                                 </button>
-                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO3</small>
+                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO</small>
                             </div>
 
                             <div className="d-flex flex-column align-items-center">
@@ -250,7 +270,7 @@ const Camara = () => {
                                 <RefreshCw size={20} className="me-2" /> REPETIR
                             </button>
                             <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" onClick={() => alert("¡Firebase!")}>
-                                <Check size={24} className="me-2" /> SUBIR
+                                <Check size={24} className="me-2 " /> SUBIR
                             </button>
                         </div>
                     )}
