@@ -128,7 +128,7 @@ const Camara = () => {
         const distOjosPX = Math.sqrt(Math.pow(xDer - xIzq, 2) + Math.pow(yDer - yIzq, 2));
         const angulo = Math.atan2(yDer - yIzq, xDer - xIzq);
 
-        const anchoLentes = distOjosPX * 2.8; 
+        const anchoLentes = distOjosPX * 2.4; 
         const lentesRatio = assets.lentes.naturalHeight / assets.lentes.naturalWidth;
         const altoLentes = anchoLentes * lentesRatio;
 
@@ -138,12 +138,12 @@ const Camara = () => {
         ctx.drawImage(assets.lentes, -anchoLentes / 2, -altoLentes / 2, anchoLentes, altoLentes);
         ctx.restore();
 
-        const anchoGorro = anchoLentes * 0.8;
+        const anchoGorro = anchoLentes * 1.0;
         const gorroRatio = assets.gorro.naturalHeight / assets.gorro.naturalWidth;
         const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.15)); 
+        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.2)); 
         ctx.rotate(angulo);
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
