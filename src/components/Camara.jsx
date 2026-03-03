@@ -143,7 +143,7 @@ const Camara = () => {
         const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.2)); 
+        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.1)); 
         ctx.rotate(angulo);
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
@@ -231,7 +231,7 @@ const Camara = () => {
                                 <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
                                     <Camera size={45} />
                                 </button>
-                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO2</small>
+                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO3</small>
                             </div>
 
                             <div className="d-flex flex-column align-items-center">
