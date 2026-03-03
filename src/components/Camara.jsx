@@ -143,30 +143,47 @@ const Camara = () => {
         const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.3)); 
+        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.1)); 
         ctx.rotate(angulo);
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
     };
 
-    const capturarFoto = () => {
+  const capturarFoto = () => {
         const video = videoRef.current;
         const canvas = canvasProcesadoRef.current;
         const ctx = canvas.getContext('2d');
+        
+        // Resolución de captura full (Story size)
         canvas.width = 1080;
         canvas.height = 1920;
 
+        // --- ESTA ES LA PARTE QUE CORREGIMOS ---
+        
+        // Antes: Espejábamos solo el video y dibujábamos el filtro "normal".
+        // Ahora: Si es selfie, espejamos TODO el canvas antes de dibujar nada.
         if (modoCamara === "user") {
-            ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+            // Movemos el origen al borde derecho y escalamos -1 en X (espejo total)
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
         }
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+        // 1. Dibujar Video (Ya sale espejado si corresponde por el translate anterior)
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // 2. Dibujar Filtros Inteligentes (Al estar el canvas espejado, 
+        //    se dibujan tal cual los ves en vivo)
         if (filtroActivo && predicciones) {
             renderAssets(ctx, predicciones, canvas.width, canvas.height);
         }
 
+        // Importante: Volvemos el canvas a la normalidad para el marco estático
+        ctx.setTransform(1, 0, 0, 1, 0, 0); 
+
+        // 3. Dibujar Marco Estático (Este no se espeja nunca)
         ctx.drawImage(assets.marco, 0, 0, canvas.width, canvas.height);
+        
+        // Convertir a imagen final
         setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
     };
 
@@ -214,7 +231,7 @@ const Camara = () => {
                                 <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
                                     <Camera size={45} />
                                 </button>
-                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTOo</small>
+                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO1</small>
                             </div>
 
                             <div className="d-flex flex-column align-items-center">
