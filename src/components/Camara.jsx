@@ -42,7 +42,7 @@ const Camara = () => {
             const landmarks = results.multiFaceLandmarks ? results.multiFaceLandmarks[0] : null;
             setPredicciones(landmarks);
             
-            if (filtroActivo && landmarks && canvasOverlayRef.current) {
+            if (landmarks && canvasOverlayRef.current) {
                 const canvas = canvasOverlayRef.current;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -54,7 +54,7 @@ const Camara = () => {
         iniciarCamara();
         
         return () => detenerCamara();
-    }, [modoCamara, filtroActivo]); 
+    }, [modoCamara]); 
 
     // 2. SOLUCIÓN PANTALLA NEGRA AL REPETIR
     useEffect(() => {
@@ -115,7 +115,7 @@ const Camara = () => {
         return () => cancelAnimationFrame(timer);
     }, [filtroActivo, fotoCapturada]);
 
-    // 6. LÓGICA DE DIBUJO MATEMÁTICO (Corregida para Horizontal)
+    // 4. LÓGICA DE DIBUJO (Corregida para Estabilidad Horizontal)
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
 
@@ -148,9 +148,11 @@ const Camara = () => {
         const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        // Usamos pFrente directamente y un offset basado solo en el alto del gorro
-        // Esto evita que "baile" cuando el celular gira
-        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.15)); 
+        // Usamos una lógica de posición vertical más estricta para evitar que flote al girar
+        const esHorizontal = w > h;
+        const offsetY = esHorizontal ? (altoGorro * 0.1) : (altoGorro * 0.3);
+
+        ctx.translate(pFrente.x * w, pFrente.y * h + offsetY); 
         ctx.rotate(angulo);
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
@@ -161,7 +163,6 @@ const Camara = () => {
         const canvas = canvasProcesadoRef.current;
         const ctx = canvas.getContext('2d');
         
-        // Detectar si el video está en horizontal para la captura
         const esHorizontal = video.videoWidth > video.videoHeight;
         canvas.width = esHorizontal ? 1920 : 1080;
         canvas.height = esHorizontal ? 1080 : 1920;
@@ -224,7 +225,7 @@ const Camara = () => {
                                 <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
                                     <Camera size={45} />
                                 </button>
-                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO4</small>
+                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FOTO10</small>
                             </div>
 
                             <div className="d-flex flex-column align-items-center">
