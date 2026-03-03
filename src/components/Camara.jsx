@@ -18,6 +18,7 @@ const Camara = () => {
     const [filtroActivo, setFiltroActivo] = useState(false);
     const [predicciones, setPredicciones] = useState(null);
 
+    // 1. CARGA DE IMÁGENES SEGURA
     const assets = useMemo(() => {
         const imgL = new Image(); imgL.src = lentesImg;
         const imgG = new Image(); imgG.src = gorroImg;
@@ -25,36 +26,39 @@ const Camara = () => {
         return { lentes: imgL, gorro: imgG, marco: imgM };
     }, []);
 
+    // 2. INICIALIZAR FACEMESH (Con dependencia en filtroActivo para forzar arranque)
     useEffect(() => {
-        const faceMesh = new FaceMesh({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-        });
+        if (!faceMeshRef.current) {
+            const faceMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+            });
 
-        faceMesh.setOptions({
-            maxNumFaces: 1,
-            refineLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5,
-        });
+            faceMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5,
+            });
 
-        faceMesh.onResults((results) => {
-            const landmarks = results.multiFaceLandmarks ? results.multiFaceLandmarks[0] : null;
-            setPredicciones(landmarks);
-            
-            if (filtroActivo && landmarks && canvasOverlayRef.current) {
-                const canvas = canvasOverlayRef.current;
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                renderAssets(ctx, landmarks, canvas.width, canvas.height);
-            }
-        });
-
-        faceMeshRef.current = faceMesh;
-        iniciarCamara();
+            faceMesh.onResults((results) => {
+                const landmarks = results.multiFaceLandmarks ? results.multiFaceLandmarks[0] : null;
+                setPredicciones(landmarks);
+                
+                if (filtroActivo && landmarks && canvasOverlayRef.current) {
+                    const canvas = canvasOverlayRef.current;
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    renderAssets(ctx, landmarks, canvas.width, canvas.height);
+                }
+            });
+            faceMeshRef.current = faceMesh;
+        }
         
+        iniciarCamara();
         return () => detenerCamara();
-    }, [modoCamara, filtroActivo]); 
+    }, [modoCamara]); 
 
+    // 3. FUNCIÓN PARA GIRAR CAMARA
     const girarCamara = () => {
         setModoCamara(prev => prev === "user" ? "environment" : "user");
     };
@@ -67,8 +71,12 @@ const Camara = () => {
                 audio: false
             });
             streamRef.current = stream;
-            if (videoRef.current) videoRef.current.srcObject = stream;
-        } catch (err) { console.error(err); }
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                // Forzamos el play para evitar pantalla negra
+                videoRef.current.onloadedmetadata = () => videoRef.current.play();
+            }
+        } catch (err) { console.error("Error cámara:", err); }
     };
 
     const detenerCamara = () => {
@@ -78,6 +86,7 @@ const Camara = () => {
         }
     };
 
+    // Re-vincular video al volver de "Repetir"
     useEffect(() => {
         if (!fotoCapturada && streamRef.current && videoRef.current) {
             videoRef.current.srcObject = streamRef.current;
@@ -85,13 +94,14 @@ const Camara = () => {
         }
     }, [fotoCapturada]);
 
+    // 4. LOOP DE PROCESAMIENTO (Aseguramos que el "send" ocurra siempre)
     useEffect(() => {
         let timer;
         const enviarFrame = async () => {
             if (filtroActivo && videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada) {
                 try {
                     await faceMeshRef.current.send({ image: videoRef.current });
-                } catch (e) { console.error(e); }
+                } catch (e) { console.error("Error FaceMesh:", e); }
             } else if (!filtroActivo && canvasOverlayRef.current) {
                 const ctx = canvasOverlayRef.current.getContext('2d');
                 ctx.clearRect(0, 0, canvasOverlayRef.current.width, canvasOverlayRef.current.height);
@@ -102,14 +112,14 @@ const Camara = () => {
         return () => cancelAnimationFrame(timer);
     }, [filtroActivo, fotoCapturada]);
 
+    // 5. LÓGICA DE DIBUJO (Ajuste de tamaño y posición)
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
 
-        const pIzq = landmarks[33];
-        const pDer = landmarks[263];
-        const pFrente = landmarks[10];
+        const pIzq = landmarks[33]; 
+        const pDer = landmarks[263]; 
+        const pFrente = landmarks[10]; 
 
-        // Lógica simple: Usamos las coordenadas tal cual vienen
         const xIzq = pIzq.x * w; const yIzq = pIzq.y * h;
         const xDer = pDer.x * w; const yDer = pDer.y * h;
         const centroX = (xIzq + xDer) / 2;
@@ -118,8 +128,8 @@ const Camara = () => {
         const distOjosPX = Math.sqrt(Math.pow(xDer - xIzq, 2) + Math.pow(yDer - yIzq, 2));
         const angulo = Math.atan2(yDer - yIzq, xDer - xIzq);
 
-        // --- LENTES: TAMAÑO AJUSTADO Y PROPORCIÓN ORIGINAL ---
-        const anchoLentes = distOjosPX * 2.8; 
+        // --- LENTES: TAMAÑO AJUSTADO (Un poco más grandes y sin achatarse) ---
+        const anchoLentes = distOjosPX * 3.2; // Escala corregida
         const lentesRatio = assets.lentes.naturalHeight / assets.lentes.naturalWidth;
         const altoLentes = anchoLentes * lentesRatio;
 
@@ -129,14 +139,14 @@ const Camara = () => {
         ctx.drawImage(assets.lentes, -anchoLentes / 2, -altoLentes / 2, anchoLentes, altoLentes);
         ctx.restore();
 
-        // --- GORRO: BAJADO Y PROPORCIÓN ORIGINAL ---
+        // --- GORRO: MÁS BAJO (Para que entre bien en la frente) ---
         const anchoGorro = anchoLentes * 1.2;
         const gorroRatio = assets.gorro.naturalHeight / assets.gorro.naturalWidth;
         const altoGorro = anchoGorro * gorroRatio;
 
         ctx.save();
-        // Sumamos (altoGorro * 0.3) para que baje de la punta de la cabeza a la frente
-        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.3)); 
+        // Sumamos (altoGorro * 0.4) para que baje más hacia las cejas/frente
+        ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.4)); 
         ctx.rotate(angulo);
         ctx.drawImage(assets.gorro, -anchoGorro / 2, -altoGorro, anchoGorro, altoGorro);
         ctx.restore();
@@ -160,13 +170,13 @@ const Camara = () => {
         }
 
         ctx.drawImage(assets.marco, 0, 0, canvas.width, canvas.height);
-        setFotoCapturada(canvas.toDataURL('image/jpeg', 0.8));
+        setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
     };
 
     return (
         <div className="container text-center mt-3 mb-5 pb-5">
             <div className="position-relative d-inline-block shadow-lg rounded bg-dark" 
-                 style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16' }}>
+                 style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16', overflow: 'visible' }}>
                 
                 <div className="w-100 h-100 rounded overflow-hidden position-relative">
                     {!fotoCapturada ? (
@@ -184,35 +194,46 @@ const Camara = () => {
                                     }} />
 
                             <img src={marcoImg} className="position-absolute top-0 start-0 w-100 h-100" 
-                                 style={{ pointerEvents: 'none', zIndex: 20, objectFit: 'contain' }} />
+                                 style={{ pointerEvents: 'none', zIndex: 20, objectFit: 'contain' }} alt="Marco" />
                         </>
                     ) : (
                         <img src={fotoCapturada} className="w-100 h-100" style={{ objectFit: 'cover' }} />
                     )}
                 </div>
 
+                {/* BOTONES FLOTANTES */}
                 <div className="position-absolute start-50 translate-middle-x w-100" style={{ bottom: '-45px', zIndex: 30 }}>
                     {!fotoCapturada ? (
                         <div className="d-flex justify-content-center align-items-center gap-4">
-                            <button className={`btn rounded-circle shadow border-dark border-2 ${filtroActivo ? 'btn-warning' : 'btn-dark'}`}
-                                    style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    onClick={() => setFiltroActivo(!filtroActivo)}>
-                                <Sparkles size={24} color={filtroActivo ? "black" : "#f8bbd0"} />
-                            </button>
-                            <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
-                                <Camera size={45} />
-                            </button>
-                            <button className="btn btn-dark rounded-circle shadow border-dark border-2" 
-                                    style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    onClick={girarCamara}>
-                                <SwitchCamera size={24} color="#f8bbd0" />
-                            </button>
+                            <div className="d-flex flex-column align-items-center">
+                                <button className={`btn rounded-circle shadow border-dark border-2 ${filtroActivo ? 'btn-warning' : 'btn-dark'}`}
+                                        style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        onClick={() => setFiltroActivo(!filtroActivo)}>
+                                    <Sparkles size={24} color={filtroActivo ? "black" : "#f8bbd0"} />
+                                </button>
+                                <small className="text-white mt-1" style={{ fontSize: '10px' }}>FILTRO</small>
+                            </div>
+
+                            <div className="d-flex flex-column align-items-center">
+                                <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
+                                    <Camera size={45} />
+                                </button>
+                                <small className="text-white mt-1" style={{ fontSize: '10px' }}>FOTO</small>
+                            </div>
+
+                            <div className="d-flex flex-column align-items-center">
+                                <button className="btn btn-dark rounded-circle shadow border-dark border-2" 
+                                        style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        onClick={girarCamara}>
+                                    <SwitchCamera size={24} color="#f8bbd0" />
+                                </button>
+                                <small className="text-white mt-1" style={{ fontSize: '10px' }}>GIRAR</small>
+                            </div>
                         </div>
                     ) : (
                         <div className="d-flex gap-2 px-3">
-                            <button className="btn btn-secondary flex-grow-1 py-3 text-white rounded-pill border-dark border-2" 
-                                    onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c' }}>
-                                <RefreshCw size={20} className="me-2" /> REPETIRr
+                            <button className="btn btn-secondary flex-grow-1 py-3 text-white rounded-pill border-dark border-2" onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c' }}>
+                                <RefreshCw size={20} className="me-2" /> REPETIR
                             </button>
                             <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" onClick={() => alert("¡Firebase!")}>
                                 <Check size={24} className="me-2" /> SUBIR
