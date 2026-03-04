@@ -28,6 +28,9 @@ const Camara = () => {
 
     // 1. INICIALIZAR FACEMESH
     useEffect(() => {
+        // Primero iniciamos la cámara para que el stream esté listo
+        iniciarCamara();
+
         const faceMesh = new FaceMesh({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
@@ -70,7 +73,6 @@ const Camara = () => {
         });
 
         faceMeshRef.current = faceMesh;
-        iniciarCamara();
         
         return () => detenerCamara();
     }, [modoCamara]); 
@@ -104,7 +106,10 @@ const Camara = () => {
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                videoRef.current.onloadedmetadata = () => videoRef.current.play();
+                // Al cargar la metadata, nos aseguramos de que el video empiece a correr
+                videoRef.current.onloadedmetadata = () => {
+                    videoRef.current.play();
+                };
             }
         } catch (err) { console.error("Error cámara:", err); }
     };
@@ -120,8 +125,11 @@ const Camara = () => {
     useEffect(() => {
         let timer;
         const enviarFrame = async () => {
-            if (filtroActivo && videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada) {
-                await faceMeshRef.current.send({ image: videoRef.current });
+            // Agregamos chequeo de faceMeshRef.current para evitar errores de inicio
+            if (filtroActivo && videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada && faceMeshRef.current) {
+                try {
+                    await faceMeshRef.current.send({ image: videoRef.current });
+                } catch (e) { console.error("Error enviando frame:", e); }
             } else if (!filtroActivo && canvasOverlayRef.current) {
                 const ctx = canvasOverlayRef.current.getContext('2d');
                 ctx.clearRect(0, 0, canvasOverlayRef.current.width, canvasOverlayRef.current.height);
