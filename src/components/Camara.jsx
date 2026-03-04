@@ -19,6 +19,13 @@ const Camara = () => {
     const [filtroActivo, setFiltroActivo] = useState(false);
     const [predicciones, setPredicciones] = useState(null);
 
+    // Guardamos el estado del filtro en una Ref para que el motor de FaceMesh 
+    // lo lea instantáneamente sin necesidad de reiniciarse
+    const filtroActivoRef = useRef(false);
+    useEffect(() => {
+        filtroActivoRef.current = filtroActivo;
+    }, [filtroActivo]);
+
     const assets = useMemo(() => {
         const imgL = new Image(); imgL.src = lentesImg;
         const imgG = new Image(); imgG.src = gorroImg;
@@ -26,7 +33,7 @@ const Camara = () => {
         return { lentes: imgL, gorro: imgG, marco: imgM };
     }, []);
 
-    // 1. INICIALIZAR FACEMESH (Solo cambia cuando giramos cámara)
+    // 1. INICIALIZAR FACEMESH (Solo cambia con modoCamara)
     useEffect(() => {
         iniciarCamara();
 
@@ -42,7 +49,6 @@ const Camara = () => {
         });
 
         faceMesh.onResults((results) => {
-            // Guardamos las caras siempre, para que estén listas para la foto
             setPredicciones(results.multiFaceLandmarks); 
             
             if (canvasOverlayRef.current) {
@@ -50,9 +56,8 @@ const Camara = () => {
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // IMPORTANTE: Dibujamos solo si el filtro está activo, 
-                // pero el motor de FaceMesh NO se reinicia.
-                if (filtroActivo && results.multiFaceLandmarks) {
+                // Usamos la REF para saber si dibujamos, así no parpadea el motor
+                if (filtroActivoRef.current && results.multiFaceLandmarks) {
                     results.multiFaceLandmarks.forEach((faceLandmarks) => {
                         renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
                     });
@@ -63,7 +68,7 @@ const Camara = () => {
         faceMeshRef.current = faceMesh;
         
         return () => detenerCamara();
-    }, [modoCamara, filtroActivo]); // Mantenemos filtroActivo aquí para que onResults tenga el valor actualizado
+    }, [modoCamara]); // SACAMOS filtroActivo de acá para eliminar el parpadeo negro
 
     // 2. SOLUCIÓN PANTALLA NEGRA AL REPETIR
     useEffect(() => {
@@ -106,11 +111,10 @@ const Camara = () => {
         }
     };
 
-    // 3. LOOP DE PROCESAMIENTO (Este siempre corre si el video está listo)
+    // 3. LOOP DE PROCESAMIENTO (Siempre activo)
     useEffect(() => {
         let timer;
         const enviarFrame = async () => {
-            // Quitamos el chequeo de filtroActivo de acá para que el motor esté siempre "caliente"
             if (videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada && faceMeshRef.current) {
                 try {
                     await faceMeshRef.current.send({ image: videoRef.current });
@@ -120,7 +124,7 @@ const Camara = () => {
         };
         enviarFrame();
         return () => cancelAnimationFrame(timer);
-    }, [fotoCapturada]); // El loop solo depende de si hay una foto o no
+    }, [fotoCapturada]);
 
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
