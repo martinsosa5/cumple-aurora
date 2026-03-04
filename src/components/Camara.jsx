@@ -33,13 +33,13 @@ const Camara = () => {
         });
 
         faceMesh.setOptions({
-            maxNumFaces: 1,
+            maxNumFaces: 4,
             refineLandmarks: true,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5,
         });
 
-        faceMesh.onResults((results) => {
+        /* faceMesh.onResults((results) => {
             const landmarks = results.multiFaceLandmarks ? results.multiFaceLandmarks[0] : null;
             setPredicciones(landmarks);
             
@@ -48,6 +48,24 @@ const Camara = () => {
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 renderAssets(ctx, landmarks, canvas.width, canvas.height);
+            }
+        }); */
+
+        faceMesh.onResults((results) => {
+            // Guardamos todas las caras detectadas para la captura de foto
+            setPredicciones(results.multiFaceLandmarks); 
+            
+            if (results.multiFaceLandmarks && canvasOverlayRef.current) {
+                const canvas = canvasOverlayRef.current;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Si el filtro está activo, dibujamos los accesorios en CADA cara
+                if (filtroActivo) {
+                    results.multiFaceLandmarks.forEach((faceLandmarks) => {
+                        renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
+                    });
+                }
             }
         });
 
@@ -174,8 +192,14 @@ const Camara = () => {
         
         // 2. Dibujar Filtros Inteligentes (Al estar el canvas espejado, 
         //    se dibujan tal cual los ves en vivo)
-        if (filtroActivo && predicciones) {
+        /* if (filtroActivo && predicciones) {
             renderAssets(ctx, predicciones, canvas.width, canvas.height);
+        } */
+        if (filtroActivo && predicciones) {
+            // Como ahora 'predicciones' es una lista de caras, las recorremos:
+            predicciones.forEach((faceLandmarks) => {
+                renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
+            });
         }
 
         // Importante: Volvemos el canvas a la normalidad para el marco estático
