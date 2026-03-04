@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Camera, RefreshCw, Check, SwitchCamera, Sparkles,Download } from 'lucide-react';
+import { Camera, RefreshCw, Check, SwitchCamera, Sparkles, Download } from 'lucide-react';
 import { FaceMesh } from '@mediapipe/face_mesh';
 
 import marcoImg from '../assets/marco.png';
@@ -26,9 +26,8 @@ const Camara = () => {
         return { lentes: imgL, gorro: imgG, marco: imgM };
     }, []);
 
-    // 1. INICIALIZAR FACEMESH
+    // 1. INICIALIZAR FACEMESH (Solo cambia cuando giramos cámara)
     useEffect(() => {
-        // Primero iniciamos la cámara para que el stream esté listo
         iniciarCamara();
 
         const faceMesh = new FaceMesh({
@@ -42,29 +41,18 @@ const Camara = () => {
             minTrackingConfidence: 0.5,
         });
 
-        /* faceMesh.onResults((results) => {
-            const landmarks = results.multiFaceLandmarks ? results.multiFaceLandmarks[0] : null;
-            setPredicciones(landmarks);
-            
-            if (landmarks && canvasOverlayRef.current) {
-                const canvas = canvasOverlayRef.current;
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                renderAssets(ctx, landmarks, canvas.width, canvas.height);
-            }
-        }); */
-
         faceMesh.onResults((results) => {
-            // Guardamos todas las caras detectadas para la captura de foto
+            // Guardamos las caras siempre, para que estén listas para la foto
             setPredicciones(results.multiFaceLandmarks); 
             
-            if (results.multiFaceLandmarks && canvasOverlayRef.current) {
+            if (canvasOverlayRef.current) {
                 const canvas = canvasOverlayRef.current;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Si el filtro está activo, dibujamos los accesorios en CADA cara
-                if (filtroActivo) {
+                // IMPORTANTE: Dibujamos solo si el filtro está activo, 
+                // pero el motor de FaceMesh NO se reinicia.
+                if (filtroActivo && results.multiFaceLandmarks) {
                     results.multiFaceLandmarks.forEach((faceLandmarks) => {
                         renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
                     });
@@ -75,7 +63,7 @@ const Camara = () => {
         faceMeshRef.current = faceMesh;
         
         return () => detenerCamara();
-    }, [modoCamara]); 
+    }, [modoCamara, filtroActivo]); // Mantenemos filtroActivo aquí para que onResults tenga el valor actualizado
 
     // 2. SOLUCIÓN PANTALLA NEGRA AL REPETIR
     useEffect(() => {
@@ -85,7 +73,7 @@ const Camara = () => {
                 try {
                     await videoRef.current.play();
                 } catch (err) {
-                    console.log("Esperando interacción del usuario...");
+                    console.log("Esperando interacción...");
                 }
             }
         };
@@ -106,10 +94,7 @@ const Camara = () => {
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                // Al cargar la metadata, nos aseguramos de que el video empiece a correr
-                videoRef.current.onloadedmetadata = () => {
-                    videoRef.current.play();
-                };
+                videoRef.current.onloadedmetadata = () => videoRef.current.play();
             }
         } catch (err) { console.error("Error cámara:", err); }
     };
@@ -121,24 +106,21 @@ const Camara = () => {
         }
     };
 
-    // 3. LOOP DE PROCESAMIENTO
+    // 3. LOOP DE PROCESAMIENTO (Este siempre corre si el video está listo)
     useEffect(() => {
         let timer;
         const enviarFrame = async () => {
-            // Agregamos chequeo de faceMeshRef.current para evitar errores de inicio
-            if (filtroActivo && videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada && faceMeshRef.current) {
+            // Quitamos el chequeo de filtroActivo de acá para que el motor esté siempre "caliente"
+            if (videoRef.current && videoRef.current.readyState === 4 && !fotoCapturada && faceMeshRef.current) {
                 try {
                     await faceMeshRef.current.send({ image: videoRef.current });
                 } catch (e) { console.error("Error enviando frame:", e); }
-            } else if (!filtroActivo && canvasOverlayRef.current) {
-                const ctx = canvasOverlayRef.current.getContext('2d');
-                ctx.clearRect(0, 0, canvasOverlayRef.current.width, canvasOverlayRef.current.height);
             }
             timer = requestAnimationFrame(enviarFrame);
         };
         enviarFrame();
         return () => cancelAnimationFrame(timer);
-    }, [filtroActivo, fotoCapturada]);
+    }, [fotoCapturada]); // El loop solo depende de si hay una foto o no
 
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
@@ -176,53 +158,34 @@ const Camara = () => {
         ctx.restore();
     };
 
-  const capturarFoto = () => {
+    const capturarFoto = () => {
         const video = videoRef.current;
         const canvas = canvasProcesadoRef.current;
         const ctx = canvas.getContext('2d');
         
-        // Resolución de captura full (Story size)
         canvas.width = 1080;
         canvas.height = 1920;
 
-        // --- ESTA ES LA PARTE QUE CORREGIMOS ---
-        
-        // Antes: Espejábamos solo el video y dibujábamos el filtro "normal".
-        // Ahora: Si es selfie, espejamos TODO el canvas antes de dibujar nada.
         if (modoCamara === "user") {
-            // Movemos el origen al borde derecho y escalamos -1 en X (espejo total)
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
         }
 
-        // 1. Dibujar Video (Ya sale espejado si corresponde por el translate anterior)
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // 2. Dibujar Filtros Inteligentes (Al estar el canvas espejado, 
-        //    se dibujan tal cual los ves en vivo)
-        /* if (filtroActivo && predicciones) {
-            renderAssets(ctx, predicciones, canvas.width, canvas.height);
-        } */
         if (filtroActivo && predicciones) {
-            // Como ahora 'predicciones' es una lista de caras, las recorremos:
             predicciones.forEach((faceLandmarks) => {
                 renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
             });
         }
 
-        // Importante: Volvemos el canvas a la normalidad para el marco estático
         ctx.setTransform(1, 0, 0, 1, 0, 0); 
-
-        // 3. Dibujar Marco Estático (Este no se espeja nunca)
         ctx.drawImage(assets.marco, 0, 0, canvas.width, canvas.height);
-        
-        // Convertir a imagen final
         setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
     };
 
     const descargarFoto = () => {
         if (!fotoCapturada) return;
-        
         const link = document.createElement('a');
         link.href = fotoCapturada;
         link.download = `foto_cumple_aurora_${Date.now()}.jpg`;
@@ -263,32 +226,19 @@ const Camara = () => {
                     {!fotoCapturada ? (
                         <div className="d-flex justify-content-center align-items-center gap-4">
                             <div className="d-flex flex-column align-items-center">
-                        <button 
-                            className="btn rounded-circle shadow border-dark border-2"
-                            style={{ 
-                                width: '55px', 
-                                height: '55px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                backgroundColor: filtroActivo ? '#fae5a4' : '#ffffff', // Amarillo si activo, Blanco si no
-                                overflow: 'hidden',
-                                padding: '5px' // Un poquito de margen interno para que la imagen no toque el borde
-                            }}
-                            onClick={() => setFiltroActivo(!filtroActivo)}
-                        >
-                            <img 
-                                src={iconoFiltroMenu} 
-                                alt="Filtro" 
-                                style={{ 
-                                    width: '100%', 
-                                    height: '100%', 
-                                    objectFit: 'contain' 
-                                }} 
-                            />
-                        </button>
-                        <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FILTRO</small>
-                    </div>
+                                <button 
+                                    className="btn rounded-circle shadow border-dark border-2"
+                                    style={{ 
+                                        width: '55px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        backgroundColor: filtroActivo ? '#fae5a4' : '#ffffff', 
+                                        overflow: 'hidden', padding: '5px' 
+                                    }}
+                                    onClick={() => setFiltroActivo(!filtroActivo)}
+                                >
+                                    <img src={iconoFiltroMenu} alt="Filtro" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </button>
+                                <small className="text-white mt-1 fw-bold" style={{ fontSize: '9px' }}>FILTRO</small>
+                            </div>
 
                             <div className="d-flex flex-column align-items-center">
                                 <button className="btn btn-primary rounded-circle shadow-lg p-4 border-dark border-4" onClick={capturarFoto} style={{ transform: 'scale(1.1)' }}>
