@@ -2,6 +2,10 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Camera, RefreshCw, Check, SwitchCamera, Sparkles, Download } from 'lucide-react';
 import { FaceMesh } from '@mediapipe/face_mesh';
 
+// IMPORTANTE: Importamos el storage desde tu archivo de configuración
+import { storage } from '../firebase'; 
+import { ref, uploadBytes } from "firebase/storage";
+
 import marcoImg from '../assets/marco.png';
 import lentesImg from '../assets/lentes.png';
 import gorroImg from '../assets/gorro.png';
@@ -18,9 +22,8 @@ const Camara = () => {
     const [modoCamara, setModoCamara] = useState("user");
     const [filtroActivo, setFiltroActivo] = useState(false);
     const [predicciones, setPredicciones] = useState(null);
+    const [subiendo, setSubiendo] = useState(false); // Nuevo estado para la subida
 
-    // Guardamos el estado del filtro en una Ref para que el motor de FaceMesh 
-    // lo lea instantáneamente sin necesidad de reiniciarse
     const filtroActivoRef = useRef(false);
     useEffect(() => {
         filtroActivoRef.current = filtroActivo;
@@ -33,30 +36,23 @@ const Camara = () => {
         return { lentes: imgL, gorro: imgG, marco: imgM };
     }, []);
 
-    // 1. INICIALIZAR FACEMESH (Solo cambia con modoCamara)
     useEffect(() => {
         iniciarCamara();
-
         const faceMesh = new FaceMesh({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
-
         faceMesh.setOptions({
             maxNumFaces: 4,
             refineLandmarks: true,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5,
         });
-
         faceMesh.onResults((results) => {
             setPredicciones(results.multiFaceLandmarks); 
-            
             if (canvasOverlayRef.current) {
                 const canvas = canvasOverlayRef.current;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Usamos la REF para saber si dibujamos, así no parpadea el motor
                 if (filtroActivoRef.current && results.multiFaceLandmarks) {
                     results.multiFaceLandmarks.forEach((faceLandmarks) => {
                         renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
@@ -64,13 +60,10 @@ const Camara = () => {
                 }
             }
         });
-
         faceMeshRef.current = faceMesh;
-        
         return () => detenerCamara();
-    }, [modoCamara]); // SACAMOS filtroActivo de acá para eliminar el parpadeo negro
+    }, [modoCamara]);
 
-    // 2. SOLUCIÓN PANTALLA NEGRA AL REPETIR
     useEffect(() => {
         const reactivarVideo = async () => {
             if (!fotoCapturada && streamRef.current && videoRef.current) {
@@ -111,7 +104,6 @@ const Camara = () => {
         }
     };
 
-    // 3. LOOP DE PROCESAMIENTO (Siempre activo)
     useEffect(() => {
         let timer;
         const enviarFrame = async () => {
@@ -128,33 +120,26 @@ const Camara = () => {
 
     const renderAssets = (ctx, landmarks, w, h) => {
         if (!assets.lentes.complete || !assets.gorro.complete) return;
-
         const pIzq = landmarks[33]; 
         const pDer = landmarks[263]; 
         const pFrente = landmarks[10]; 
-
         const xIzq = pIzq.x * w; const yIzq = pIzq.y * h;
         const xDer = pDer.x * w; const yDer = pDer.y * h;
         const centroX = (xIzq + xDer) / 2;
         const centroY = (yIzq + yDer) / 2;
-        
         const distOjosPX = Math.sqrt(Math.pow(xDer - xIzq, 2) + Math.pow(yDer - yIzq, 2));
         const angulo = Math.atan2(yDer - yIzq, xDer - xIzq);
-
         const anchoLentes = distOjosPX * 2.4; 
         const lentesRatio = assets.lentes.naturalHeight / assets.lentes.naturalWidth;
         const altoLentes = anchoLentes * lentesRatio;
-
         ctx.save();
         ctx.translate(centroX, centroY);
         ctx.rotate(angulo);
         ctx.drawImage(assets.lentes, -anchoLentes / 2, -altoLentes / 2, anchoLentes, altoLentes);
         ctx.restore();
-
         const anchoGorro = anchoLentes * 1.0;
         const gorroRatio = assets.gorro.naturalHeight / assets.gorro.naturalWidth;
         const altoGorro = anchoGorro * gorroRatio;
-
         ctx.save();
         ctx.translate(pFrente.x * w, pFrente.y * h + (altoGorro * 0.1)); 
         ctx.rotate(angulo);
@@ -166,23 +151,18 @@ const Camara = () => {
         const video = videoRef.current;
         const canvas = canvasProcesadoRef.current;
         const ctx = canvas.getContext('2d');
-        
         canvas.width = 1080;
         canvas.height = 1920;
-
         if (modoCamara === "user") {
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
         }
-
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
         if (filtroActivo && predicciones) {
             predicciones.forEach((faceLandmarks) => {
                 renderAssets(ctx, faceLandmarks, canvas.width, canvas.height);
             });
         }
-
         ctx.setTransform(1, 0, 0, 1, 0, 0); 
         ctx.drawImage(assets.marco, 0, 0, canvas.width, canvas.height);
         setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
@@ -198,16 +178,43 @@ const Camara = () => {
         document.body.removeChild(link);
     };
 
+    // --- NUEVA FUNCIÓN PARA SUBIR A FIREBASE ---
+    const subirAFirebase = async () => {
+        if (!fotoCapturada || subiendo) return;
+        setSubiendo(true);
+
+        try {
+            // 1. Convertir base64 a Blob
+            const response = await fetch(fotoCapturada);
+            const blob = await response.blob();
+
+            // 2. Crear referencia en Storage con nombre único
+            const nombreArchivo = `fotos_cumple/foto_aurora_${Date.now()}.jpg`;
+            const storageRef = ref(storage, nombreArchivo);
+
+            // 3. Subir el archivo
+            await uploadBytes(storageRef, blob);
+            
+            alert("¡Foto subida con éxito! Gracias por compartir.");
+            setFotoCapturada(null); // Volver a la cámara
+        } catch (error) {
+            console.error("Error al subir:", error);
+            alert("Hubo un error al subir la foto. Intenta de nuevo.");
+        } finally {
+            setSubiendo(false);
+        }
+    };
+
     return (
         <div className="container text-center mt-3 mb-5 pb-5">
             <div className="position-relative d-inline-block shadow-lg rounded bg-dark" 
-                 style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16' }}>
+                  style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16' }}>
                 
                 <div className="w-100 h-100 rounded overflow-hidden position-relative">
                     {!fotoCapturada ? (
                         <>
                             <video ref={videoRef} autoPlay playsInline muted className="w-100 h-100" 
-                                   style={{ objectFit: 'cover', transform: modoCamara === "user" ? "scaleX(-1)" : "none" }} />
+                                    style={{ objectFit: 'cover', transform: modoCamara === "user" ? "scaleX(-1)" : "none" }} />
                             
                             <canvas ref={canvasOverlayRef} width="380" height="675" 
                                     className="position-absolute top-0 start-0 w-100 h-100"
@@ -263,18 +270,18 @@ const Camara = () => {
                     ) : (
                         <div className="d-flex gap-2 px-1 w-100">
                             <button className="btn btn-secondary flex-grow-1 py-3 text-white rounded-pill border-dark border-2" 
-                                    onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c', fontSize: '12px' }}>
+                                    onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c', fontSize: '12px' }} disabled={subiendo}>
                                 <RefreshCw size={18} className="me-1" /> REPETIR
                             </button>
                             
                             <button className="btn btn-info flex-grow-1 py-3 text-white shadow fw-bold rounded-pill border-dark border-2" 
-                                    onClick={descargarFoto} style={{ backgroundColor: '#17a2b8', fontSize: '12px' }}>
+                                    onClick={descargarFoto} style={{ backgroundColor: '#17a2b8', fontSize: '12px' }} disabled={subiendo}>
                                 <Download size={18} className="me-1" /> DESCARGAR
                             </button>
 
                             <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" 
-                                    onClick={() => alert("¡Firebase!")} style={{ fontSize: '12px' }}>
-                                <Check size={18} className="me-1" /> SUBIR
+                                    onClick={subirAFirebase} style={{ fontSize: '12px' }} disabled={subiendo}>
+                                <Check size={18} className="me-1" /> {subiendo ? 'SUBIENDO...' : 'SUBIR'}
                             </button>
                         </div>                        
                     )}
