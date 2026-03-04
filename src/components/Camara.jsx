@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Camera, RefreshCw, Check, SwitchCamera, Sparkles } from 'lucide-react';
+import { Camera, RefreshCw, Check, SwitchCamera, Sparkles,Download } from 'lucide-react';
 import { FaceMesh } from '@mediapipe/face_mesh';
 
 import marcoImg from '../assets/marco.png';
@@ -188,6 +188,17 @@ const Camara = () => {
         setFotoCapturada(canvas.toDataURL('image/jpeg', 0.9));
     };
 
+    const descargarFoto = () => {
+        if (!fotoCapturada) return;
+        
+        const link = document.createElement('a');
+        link.href = fotoCapturada;
+        link.download = `foto_cumple_aurora_${Date.now()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="container text-center mt-3 mb-5 pb-5">
             <div className="position-relative d-inline-block shadow-lg rounded bg-dark" 
@@ -264,15 +275,22 @@ const Camara = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="d-flex gap-2 px-3">
+                        <div className="d-flex gap-2 px-1 w-100">
                             <button className="btn btn-secondary flex-grow-1 py-3 text-white rounded-pill border-dark border-2" 
-                                    onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c' }}>
-                                <RefreshCw size={20} className="me-2" /> REPETIR
+                                    onClick={() => setFotoCapturada(null)} style={{ backgroundColor: '#2c2c2c', fontSize: '12px' }}>
+                                <RefreshCw size={18} className="me-1" /> REPETIR
                             </button>
-                            <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" onClick={() => alert("¡Firebase!")}>
-                                <Check size={24} className="me-2 " /> SUBIR
+                            
+                            <button className="btn btn-info flex-grow-1 py-3 text-white shadow fw-bold rounded-pill border-dark border-2" 
+                                    onClick={descargarFoto} style={{ backgroundColor: '#17a2b8', fontSize: '12px' }}>
+                                <Download size={18} className="me-1" /> DESCARGAR
                             </button>
-                        </div>
+
+                            <button className="btn btn-success flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" 
+                                    onClick={() => alert("¡Firebase!")} style={{ fontSize: '12px' }}>
+                                <Check size={18} className="me-1" /> SUBIR
+                            </button>
+                        </div>                        
                     )}
                 </div>
             </div>
@@ -282,4 +300,3 @@ const Camara = () => {
 };
 
 export default Camara;
- //funcionando 
