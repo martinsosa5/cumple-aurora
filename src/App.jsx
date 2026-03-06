@@ -45,7 +45,7 @@ function App() {
           {vistaActual === "camara" && (
             <div className="animate__animated animate__fadeIn w-100 d-flex flex-column align-items-center">
               <button 
-                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow"
+                className="btn btn-sm mb-1 d-flex align-items-center fw-bold shadow"
                 style={{ 
                     borderRadius: '20px', 
                     backgroundColor: '#ffeb3b', 
@@ -57,7 +57,7 @@ function App() {
               >
                 <ArrowLeft size={20} className="me-2" /> Volver al Menú Principal
               </button>
-              <div className="mt-2 w-100 d-flex justify-content-center">
+              <div className=" w-100 d-flex justify-content-center">
                 <Camara />
               </div>
             </div>
@@ -67,7 +67,7 @@ function App() {
           {vistaActual === "galeria" && (
             <div className="animate__animated animate__fadeIn w-100 d-flex flex-column align-items-center">
                <button 
-                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow"
+                className="btn btn-sm mb-1 d-flex align-items-center fw-bold shadow"
                 style={{ 
                     borderRadius: '20px', 
                     backgroundColor: '#ffeb3b', 
