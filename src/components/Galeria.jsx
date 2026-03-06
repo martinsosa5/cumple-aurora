@@ -9,7 +9,7 @@ const Galeria = ({ alIrACamara }) => {
     const [fotos, setFotos] = useState([]);
     const [cargando, setCargando] = useState(true);
     const [fotoSeleccionada, setFotoSeleccionada] = useState(null);
-    const [mostrarMensajeDescarga, setMostrarMensajeDescarga] = useState(false);
+    const [mostrarMensaje, setMostrarMensaje] = useState(false);
 
     const obtenerFotos = async () => {
         setCargando(true);
@@ -36,48 +36,29 @@ const Galeria = ({ alIrACamara }) => {
         obtenerFotos();
     }, []);
 
-    // ESTA ES LA FUNCIÓN QUE FALTABA CORREGIR:
-    const ejecutarDescarga = async (e, url, nombre) => {
+    // FUNCIÓN SIMPLIFICADA: ABRE EL LINK DIRECTO PARA DESCARGA MANUAL
+    const ejecutarDescarga = (e, url) => {
         e.stopPropagation();
         
-        try {
-            // 1. Obtenemos la imagen como datos puros (Blob)
-            const response = await fetch(url);
-            const blob = await response.blob();
-            
-            // 2. Creamos una URL temporal que el navegador entienda como archivo local
-            const urlBlob = window.URL.createObjectURL(blob);
-            
-            // 3. Forzamos la descarga silenciosa (sin abrir pestañas)
-            const link = document.createElement('a');
-            link.href = urlBlob;
-            link.download = nombre || `foto_aurora_${Date.now()}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            
-            // 4. Limpiamos todo
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(urlBlob);
+        // Mostramos el mensaje de ayuda antes de abrir
+        setMostrarMensaje(true);
+        
+        // Abrimos la imagen en una pestaña nueva
+        // En celulares, esto permite que el usuario mantenga apretado para guardar
+        window.open(url, '_blank');
 
-            // 5. Mostramos el mensaje de éxito
-            setMostrarMensajeDescarga(true);
-            setTimeout(() => setMostrarMensajeDescarga(false), 2500);
-
-        } catch (err) {
-            console.error("Error en descarga silenciosa:", err);
-            // Si falla por CORS en localhost, este es el único caso donde abriría link
-            // Pero en Vercel (producción) debería funcionar directo.
-            window.open(url, '_blank');
-        }
+        // Ocultamos el mensaje después de un momento
+        setTimeout(() => setMostrarMensaje(false), 3000);
     };
 
     return (
         <div className="container-fluid pb-5 position-relative" style={{ minHeight: '100vh' }}>
             
+            {/* Título con Icono Rosa */}
             <div className="text-center mb-4 pt-2 d-flex align-items-center justify-content-center gap-2">
                 <Images size={32} color="#f8bbd0" /> 
                 <h2 className="text-white fw-bold m-0" style={{ color: '#f8bbd0', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-                    Galería del cumple Aurora
+                    Galería del cumple de Aurora
                 </h2>
             </div>
 
@@ -107,6 +88,7 @@ const Galeria = ({ alIrACamara }) => {
                 </div>
             )}
 
+            {/* BOTÓN FLOTANTE DE CÁMARA */}
             <div className="position-fixed" style={{ bottom: '25px', right: '20px', zIndex: 1000 }}>
                 <button 
                     className="btn shadow-lg d-flex align-items-center justify-content-center"
@@ -120,6 +102,7 @@ const Galeria = ({ alIrACamara }) => {
                 </button>
             </div>
 
+            {/* MODAL DE ZOOM */}
             {fotoSeleccionada && (
                 <div 
                     className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center animate__animated animate__fadeIn"
@@ -137,26 +120,24 @@ const Galeria = ({ alIrACamara }) => {
                         alt="Zoom"
                     />
 
-                    <div className="d-flex gap-2 mt-4">
-                        <button 
-                            className="btn rounded-pill px-4 py-2 fw-bold shadow-lg d-flex align-items-center"
-                            style={{ backgroundColor: '#ffeb3b', color: '#000', border: 'none', fontSize: '15px' }}
-                            onClick={(e) => ejecutarDescarga(e, fotoSeleccionada.url, fotoSeleccionada.nombre)}
-                        >
-                            <Download size={18} className="me-2" /> GUARDAR FOTO
-                        </button>
-                    </div>
+                    <button 
+                        className="btn mt-4 rounded-pill px-5 py-2 fw-bold shadow-lg d-flex align-items-center"
+                        style={{ backgroundColor: '#ffeb3b', color: '#000', border: 'none', fontSize: '16px' }}
+                        onClick={(e) => ejecutarDescarga(e, fotoSeleccionada.url)}
+                    >
+                        <Download size={20} className="me-2" /> DESCARGAR FOTO
+                    </button>
                 </div>
             )}
 
-            {/* MENSAJE DE ÉXITO */}
-            {mostrarMensajeDescarga && (
+            {/* MENSAJE DE AYUDA (Igual al de la cámara pero con instrucción) */}
+            {mostrarMensaje && (
                 <div className="position-fixed top-50 start-50 translate-middle animate__animated animate__bounceIn" 
                      style={{ zIndex: 3000, pointerEvents: 'none' }}>
                     <div className="bg-white p-4 rounded-4 shadow-lg text-center border border-warning border-4">
-                        <CheckCircle size={50} color="#28a745" className="mb-2" />
-                        <h5 className="fw-bold mb-0 text-dark">¡Foto guardada!</h5>
-                        <p className="text-muted small mb-0">Revisá tu galería de fotos.</p>
+                        <CheckCircle size={40} color="#28a745" className="mb-2" />
+                        <h5 className="fw-bold mb-0 text-dark">¡Imagen lista!</h5>
+                        <p className="text-muted small mb-0">Mantené presionada la foto para guardarla.</p>
                     </div>
                 </div>
             )}
