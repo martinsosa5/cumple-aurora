@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Camera, RefreshCw, Check, SwitchCamera, Sparkles, Download } from 'lucide-react';
+import { Camera, RefreshCw, Check, SwitchCamera, Sparkles, Download, CheckCircle } from 'lucide-react';
 import { FaceMesh } from '@mediapipe/face_mesh';
 
 // IMPORTANTE: Importamos el storage desde tu archivo de configuración
@@ -22,7 +22,8 @@ const Camara = () => {
     const [modoCamara, setModoCamara] = useState("user");
     const [filtroActivo, setFiltroActivo] = useState(false);
     const [predicciones, setPredicciones] = useState(null);
-    const [subiendo, setSubiendo] = useState(false); // Nuevo estado para la subida
+    const [subiendo, setSubiendo] = useState(false);
+    const [mostrarExito, setMostrarExito] = useState(false); // Estado para el nuevo mensaje
 
     const filtroActivoRef = useRef(false);
     useEffect(() => {
@@ -178,25 +179,25 @@ const Camara = () => {
         document.body.removeChild(link);
     };
 
-    // --- NUEVA FUNCIÓN PARA SUBIR A FIREBASE ---
     const subirAFirebase = async () => {
         if (!fotoCapturada || subiendo) return;
         setSubiendo(true);
 
         try {
-            // 1. Convertir base64 a Blob
             const response = await fetch(fotoCapturada);
             const blob = await response.blob();
-
-            // 2. Crear referencia en Storage con nombre único
             const nombreArchivo = `fotos_cumple/foto_aurora_${Date.now()}.jpg`;
             const storageRef = ref(storage, nombreArchivo);
 
-            // 3. Subir el archivo
             await uploadBytes(storageRef, blob);
             
-            alert("¡Foto subida con éxito! Gracias por compartir.");
-            setFotoCapturada(null); // Volver a la cámara
+            // ACTIVAMOS EL MENSAJE LINDO
+            setMostrarExito(true);
+            setTimeout(() => {
+                setMostrarExito(false);
+                setFotoCapturada(null); 
+            }, 3500);
+
         } catch (error) {
             console.error("Error al subir:", error);
             alert("Hubo un error al subir la foto. Intenta de nuevo.");
@@ -206,7 +207,7 @@ const Camara = () => {
     };
 
     return (
-        <div className="container text-center mt-3 mb-5 pb-5">
+        <div className="container text-center mt-3 mb-5 pb-5 position-relative">
             <div className="position-relative d-inline-block shadow-lg rounded bg-dark" 
                   style={{ width: '100%', maxWidth: '380px', aspectRatio: '9/16' }}>
                 
@@ -274,8 +275,9 @@ const Camara = () => {
                                 <RefreshCw size={18} className="me-1" /> REPETIR
                             </button>
                             
-                            <button className="btn btn-info flex-grow-1 py-3 text-white shadow fw-bold rounded-pill border-dark border-2" 
-                                    onClick={descargarFoto} style={{ backgroundColor: '#17a2b8', fontSize: '12px' }} disabled={subiendo}>
+                            {/* BOTÓN DESCARGAR: AHORA AMARILLO */}
+                            <button className="btn flex-grow-1 py-3 shadow fw-bold rounded-pill border-dark border-2" 
+                                    onClick={descargarFoto} style={{ backgroundColor: '#ffeb3b', color: '#000', fontSize: '12px' }} disabled={subiendo}>
                                 <Download size={18} className="me-1" /> DESCARGAR
                             </button>
 
@@ -287,6 +289,18 @@ const Camara = () => {
                     )}
                 </div>
             </div>
+            
+            {/* MENSAJE DE ÉXITO PERSONALIZADO */}
+            {mostrarExito && (
+                <div className="position-fixed top-50 start-50 translate-middle animate__animated animate__zoomIn" style={{ zIndex: 1000, width: '85%', maxWidth: '320px' }}>
+                    <div className="bg-white p-4 rounded-4 shadow-lg border border-warning border-4 text-center">
+                        <CheckCircle size={50} color="#28a745" className="mb-3" />
+                        <h5 className="fw-bold text-dark mb-2">¡Subida con éxito!</h5>
+                        <p className="text-secondary small mb-0">Tu foto ya está en la galería para que todos la vean.</p>
+                    </div>
+                </div>
+            )}
+
             <canvas ref={canvasProcesadoRef} style={{ display: 'none' }}></canvas>
         </div>
     );
