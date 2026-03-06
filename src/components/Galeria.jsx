@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { storage } from '../firebase';
+import { storage } from '../firebase'; 
 import { ref, listAll, getDownloadURL } from "firebase/storage";
-import { Download, RefreshCw } from 'lucide-react';
-// Importamos AOS y sus estilos
+import { Download, Camera, X, Images } from 'lucide-react'; 
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
-const Galeria = () => {
+const Galeria = ({ alIrACamara }) => {
     const [fotos, setFotos] = useState([]);
     const [cargando, setCargando] = useState(true);
+    const [fotoSeleccionada, setFotoSeleccionada] = useState(null);
 
     const obtenerFotos = async () => {
         setCargando(true);
@@ -22,7 +22,6 @@ const Galeria = () => {
                 })
             );
             setFotos(urls.reverse());
-            // Refrescamos AOS después de cargar las fotos nuevas
             setTimeout(() => AOS.refresh(), 500);
         } catch (error) {
             console.error("Error cargando galería:", error);
@@ -32,67 +31,104 @@ const Galeria = () => {
     };
 
     useEffect(() => {
-        // Inicializamos AOS una sola vez al montar el componente
-        AOS.init({
-            duration: 800, // Duración de la animación en milisegundos
-            once: false,   // Si querés que se repita la animación al subir y bajar
-        });
+        AOS.init({ duration: 800, once: false });
         obtenerFotos();
     }, []);
 
-    const descargarDirecto = (url, nombre) => {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = nombre;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const ejecutarDescarga = async (e, url, nombre) => {
+        e.stopPropagation();
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = nombre;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            window.open(url, '_blank');
+        }
     };
 
     return (
-        <div className="container-fluid pb-5">
-            <div className="d-flex justify-content-between align-items-center mb-4 px-2">
-                <h3 className="text-white fw-bold m-0">Galería de Recuerdos</h3>
-                <button className="btn btn-outline-light btn-sm rounded-circle p-2" onClick={obtenerFotos}>
-                    <RefreshCw size={20} className={cargando ? 'feather-spin' : ''} />
-                </button>
+        <div className="container-fluid pb-5 position-relative" style={{ minHeight: '100vh' }}>
+            {/* Título con Icono Rosa */}
+            <div className="text-center mb-4 pt-2 d-flex align-items-center justify-content-center gap-2">
+                <Images size={32} color="#f8bbd0" /> 
+                <h2 className="text-white fw-bold m-0" style={{ color: '#f8bbd0', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                    Galería del cumple Aurora
+                </h2>
             </div>
 
             {cargando ? (
                 <div className="text-center mt-5">
-                    <div className="spinner-border text-info" role="status"></div>
+                    <div className="spinner-border text-warning" role="status"></div>
                 </div>
             ) : (
-                <div className="row g-2 overflow-hidden"> {/* overflow-hidden evita scroll horizontal por las animaciones */}
-                    {fotos.length > 0 ? (
-                        fotos.map((foto, index) => (
-                            <div 
-                                key={index} 
-                                className="col-6"
-                                // Aquí está la magia: animamos según si es columna par o impar
-                                data-aos={index % 2 === 0 ? "fade-right" : "fade-left"}
-                                data-aos-delay={index * 50} // Un pequeño retraso para que entren una tras otra
-                            >
-                                <div className="card bg-dark border-secondary overflow-hidden shadow-sm position-relative">
-                                    <img 
-                                        src={foto.url} 
-                                        className="img-fluid" 
-                                        style={{ aspectRatio: '9/16', objectFit: 'cover' }}
-                                        alt="Recuerdo"
-                                    />
-                                    <button 
-                                        className="btn btn-dark btn-sm position-absolute bottom-0 end-0 m-2 opacity-75 rounded-circle"
-                                        onClick={() => descargarDirecto(foto.url, foto.nombre)}
-                                    >
-                                        <Download size={16} color="white" />
-                                    </button>
-                                </div>
+                <div className="row g-2 overflow-hidden">
+                    {fotos.map((foto, index) => (
+                        <div 
+                            key={index} 
+                            className="col-6"
+                            data-aos={index % 2 === 0 ? "fade-right" : "fade-left"}
+                            onClick={() => setFotoSeleccionada(foto)}
+                        >
+                            <div className="card bg-dark border-0 overflow-hidden shadow-sm" style={{ borderRadius: '12px' }}>
+                                <img 
+                                    src={foto.url} 
+                                    className="img-fluid" 
+                                    style={{ aspectRatio: '9/16', objectFit: 'cover', cursor: 'pointer' }}
+                                    alt="Recuerdo"
+                                />
                             </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-secondary">No hay fotos todavía.</p>
-                    )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* BOTÓN FLOTANTE DE CÁMARA */}
+            <div className="position-fixed" style={{ bottom: '25px', right: '20px', zIndex: 1000 }}>
+                <button 
+                    className="btn shadow-lg d-flex align-items-center justify-content-center"
+                    onClick={() => alIrACamara('camara')}
+                    style={{ 
+                        width: '65px', height: '65px', borderRadius: '50%', 
+                        backgroundColor: '#ff4081', border: '3px solid white', color: 'white' 
+                    }}
+                >
+                    <Camera size={30} />
+                </button>
+            </div>
+
+            {/* MODAL DE ZOOM */}
+            {fotoSeleccionada && (
+                <div 
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center animate__animated animate__fadeIn"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000, padding: '15px' }}
+                    onClick={() => setFotoSeleccionada(null)}
+                >
+                    <button className="btn position-absolute top-0 end-0 m-3 text-white">
+                        <X size={35} onClick={() => setFotoSeleccionada(null)} />
+                    </button>
+                    
+                    <img 
+                        src={fotoSeleccionada.url} 
+                        className="img-fluid animate__animated animate__zoomIn" 
+                        style={{ maxHeight: '75vh', borderRadius: '15px', boxShadow: '0 0 20px rgba(255,255,255,0.2)' }}
+                        alt="Zoom"
+                    />
+
+                    <button 
+                        className="btn mt-4 rounded-pill px-4 py-2 fw-bold shadow-lg d-flex align-items-center"
+                        style={{ backgroundColor: '#ffeb3b', color: '#000', border: 'none', fontSize: '15px' }}
+                        onClick={(e) => ejecutarDescarga(e, fotoSeleccionada.url, fotoSeleccionada.nombre)}
+                    >
+                        <Download size={18} className="me-2" /> GUARDAR EN GALERÍA
+                    </button>
                 </div>
             )}
         </div>

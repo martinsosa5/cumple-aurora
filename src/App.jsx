@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import Camara from './components/Camara';
 import Galeria from './components/Galeria'; 
+import { ArrowLeft, Camera, Images } from 'lucide-react'; 
 
 function App() {
-  // Usamos un estado para saber qué componente mostrar
-  // "menu" = botones principales, "camara" = la cámara, "galeria" = las fotos
   const [vistaActual, setVistaActual] = useState("menu");
 
   return (
@@ -12,55 +11,70 @@ function App() {
       <div className="row justify-content-center w-100">
         <div className="col-12 col-md-6 text-center">
           
-          {/* MODO MENÚ: Los dos botones principales */}
+          {/* MODO MENÚ */}
           {vistaActual === "menu" && (
             <div className="d-flex flex-column gap-4 animate__animated animate__fadeIn">
-              <h1 className="text-white mb-4 fw-bold" style={{ color: '#f8bbd0' }}>Cumple de Aurora</h1>
+              <h1 className="text-white mb-5 fw-bold" style={{ color: '#f8bbd0', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                Cumple de Aurora
+              </h1>
               
               <button 
-                className="btn btn-primary py-4 rounded-pill shadow-lg border-white border-2 fw-bold"
+                className="btn py-4 rounded-pill shadow-lg border-white border-2 fw-bold d-flex align-items-center justify-content-center gap-3 text-white"
                 onClick={() => setVistaActual("camara")}
-                style={{ fontSize: '20px', backgroundColor: '#007bff' }}
+                style={{ fontSize: '22px', backgroundColor: '#ff4081' }}
               >
-                📸 SACAR FOTO
+                <Camera size={28} /> SACAR FOTO
               </button>
 
               <button 
-                className="btn btn-info py-4 rounded-pill shadow-lg border-white border-2 fw-bold text-white"
+                className="btn py-4 rounded-pill shadow-lg border-white border-2 fw-bold text-white d-flex align-items-center justify-content-center gap-3"
                 onClick={() => setVistaActual("galeria")}
-                style={{ fontSize: '20px', backgroundColor: '#17a2b8' }}
+                style={{ fontSize: '22px', backgroundColor: '#17a2b8' }}
               >
-                🖼️ VER GALERÍA
+                <Images size={28} /> VER GALERÍA
               </button>
             </div>
           )}
 
-          {/* MODO CÁMARA */}
+          {/* MODO CÁMARA - Botón arriba y centrado */}
           {vistaActual === "camara" && (
-            <div className="position-relative">
-              {/* Botón para volver al menú */}
+            <div className="animate__animated animate__fadeIn">
               <button 
-                className="btn btn-sm btn-outline-light position-absolute top-0 start-0 m-2"
-                style={{ zIndex: 100, borderRadius: '20px' }}
+                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow mx-auto"
+                style={{ 
+                    borderRadius: '20px', 
+                    backgroundColor: '#ffeb3b', 
+                    color: '#000',
+                    border: '2px solid #000',
+                    padding: '8px 20px'
+                }}
                 onClick={() => setVistaActual("menu")}
               >
-                ← Volver
+                <ArrowLeft size={20} className="me-2" /> Volver al Menú Principal
               </button>
-              <Camara />
+              <div className="mt-2">
+                <Camara />
+              </div>
             </div>
           )}
 
           {/* MODO GALERÍA */}
           {vistaActual === "galeria" && (
-            <div>
+            <div className="animate__animated animate__fadeIn">
                <button 
-                className="btn btn-sm btn-outline-light mb-3"
-                style={{ borderRadius: '20px' }}
+                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow mx-auto"
+                style={{ 
+                    borderRadius: '20px', 
+                    backgroundColor: '#ffeb3b', 
+                    color: '#000',
+                    border: '2px solid #000',
+                    padding: '8px 20px'
+                }}
                 onClick={() => setVistaActual("menu")}
               >
-                ← Volver al Menú
+                <ArrowLeft size={20} className="me-2" /> Volver al Menú Principal
               </button>
-              <Galeria />
+              <Galeria alIrACamara={setVistaActual} />
             </div>
           )}
 
