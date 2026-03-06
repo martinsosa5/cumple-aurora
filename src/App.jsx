@@ -3,6 +3,10 @@ import Camara from './components/Camara';
 import Galeria from './components/Galeria'; 
 import { ArrowLeft, Camera, Images } from 'lucide-react'; 
 
+// IMPORTANTE: Importamos la imagen del logo desde tu carpeta assets
+// Asegúrate de que el archivo se llame exactamente 'logo.png'
+import logoImg from './assets/img_home.png'; 
+
 function App() {
   const [vistaActual, setVistaActual] = useState("menu");
 
@@ -19,9 +23,21 @@ function App() {
           {/* MODO MENÚ */}
           {vistaActual === "menu" && (
             <div className="d-flex flex-column gap-4 animate__animated animate__fadeIn w-100" style={{ maxWidth: '400px' }}>
-              <h1 className="text-white mb-5 fw-bold" style={{ color: '#f8bbd0', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-                Cumple de Aurora
-              </h1>
+              
+              {/* REEMPLAZO: h1 por la imagen del logo */}
+              <div className="w-100 d-flex justify-content-center">
+                <img 
+                  src={logoImg} 
+                  alt="Mis 2 años Aurora" 
+                  className="img-fluid"
+                  style={{ 
+                    maxWidth: '80%', // Limitamos el ancho para que no toque los bordes
+                    height: 'auto',   // Mantenemos la proporción
+                   
+                   
+                  }} 
+                />
+              </div>
               
               <button 
                 className="btn py-4 rounded-pill shadow-lg border-white border-2 fw-bold d-flex align-items-center justify-content-center gap-3 text-white"
