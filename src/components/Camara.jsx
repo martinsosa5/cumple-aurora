@@ -6,7 +6,7 @@ import { FaceMesh } from '@mediapipe/face_mesh';
 import { storage } from '../firebase'; 
 import { ref, uploadBytes } from "firebase/storage";
 
-import marcoImg from '../assets/marco.png';
+import marcoImg from '../assets/marco01.png';
 import lentesImg from '../assets/lentes.png';
 import gorroImg from '../assets/gorro.png';
 import iconoFiltroMenu from '../assets/icono_filtro.png';
