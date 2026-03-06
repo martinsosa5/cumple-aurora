@@ -7,13 +7,18 @@ function App() {
   const [vistaActual, setVistaActual] = useState("menu");
 
   return (
-    <div className="container-fluid min-vh-100 py-4 d-flex align-items-center" style={{ backgroundColor: '#1a1a1a' }}>
-      <div className="row justify-content-center w-100">
-        <div className="col-12 col-md-6 text-center">
+    /* AGREGAMOS justify-content-center AQUÍ para centrar todo horizontalmente */
+    <div className="container-fluid min-vh-100 py-4 d-flex align-items-center justify-content-center" style={{ backgroundColor: '#1a1a1a' }}>
+      
+      {/* Forzamos que la fila ocupe el ancho necesario y se centre */}
+      <div className="row justify-content-center w-100 m-0">
+        
+        {/* El col-12 centrará el contenido de texto y componentes */}
+        <div className="col-12 col-md-8 col-lg-6 text-center d-flex flex-column align-items-center">
           
           {/* MODO MENÚ */}
           {vistaActual === "menu" && (
-            <div className="d-flex flex-column gap-4 animate__animated animate__fadeIn">
+            <div className="d-flex flex-column gap-4 animate__animated animate__fadeIn w-100" style={{ maxWidth: '400px' }}>
               <h1 className="text-white mb-5 fw-bold" style={{ color: '#f8bbd0', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
                 Cumple de Aurora
               </h1>
@@ -36,11 +41,11 @@ function App() {
             </div>
           )}
 
-          {/* MODO CÁMARA - Botón arriba y centrado */}
+          {/* MODO CÁMARA */}
           {vistaActual === "camara" && (
-            <div className="animate__animated animate__fadeIn">
+            <div className="animate__animated animate__fadeIn w-100 d-flex flex-column align-items-center">
               <button 
-                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow mx-auto"
+                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow"
                 style={{ 
                     borderRadius: '20px', 
                     backgroundColor: '#ffeb3b', 
@@ -52,7 +57,7 @@ function App() {
               >
                 <ArrowLeft size={20} className="me-2" /> Volver al Menú Principal
               </button>
-              <div className="mt-2">
+              <div className="mt-2 w-100 d-flex justify-content-center">
                 <Camara />
               </div>
             </div>
@@ -60,9 +65,9 @@ function App() {
 
           {/* MODO GALERÍA */}
           {vistaActual === "galeria" && (
-            <div className="animate__animated animate__fadeIn">
+            <div className="animate__animated animate__fadeIn w-100 d-flex flex-column align-items-center">
                <button 
-                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow mx-auto"
+                className="btn btn-sm mb-4 d-flex align-items-center fw-bold shadow"
                 style={{ 
                     borderRadius: '20px', 
                     backgroundColor: '#ffeb3b', 
@@ -74,7 +79,9 @@ function App() {
               >
                 <ArrowLeft size={20} className="me-2" /> Volver al Menú Principal
               </button>
-              <Galeria alIrACamara={setVistaActual} />
+              <div className="w-100">
+                <Galeria alIrACamara={setVistaActual} />
+              </div>
             </div>
           )}
 
